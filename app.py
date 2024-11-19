@@ -15,8 +15,8 @@ app = Flask(__name__)
 
 # Model paths defined using environment variables for flexibility
 MODEL_PATHS = {
-    "model_n": os.getenv("MODEL_N_PATH", "dev/yolo11n.pt"),
-    "faces_model": os.getenv("FACE_MODEL_PATH", "yolov8n-face.pt"),
+    "model_n": os.getenv("MODEL_N_PATH", "models/yolo11n.pt"),
+    "faces_model": os.getenv("FACE_MODEL_PATH", "models/yolov8n-face.pt"),
 }
 
 
