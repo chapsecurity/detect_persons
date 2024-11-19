@@ -15,8 +15,8 @@ app = Flask(__name__)
 
 # Model paths defined using environment variables for flexibility
 MODEL_PATHS = {
-    "model_n": os.getenv("MODEL_N_PATH", "models/yolo11n.pt"),
-    "faces_model": os.getenv("FACE_MODEL_PATH", "models/yolov8n-face.pt"),
+    "model_n": "models/yolo11n.pt",
+    "faces_model": "models/yolov8n-face.pt",
 }
 
 
@@ -55,7 +55,7 @@ def crop_padded_box(image, box, padding, image_width, image_height):
     return cv2.cvtColor(cropped_object, cv2.COLOR_BGR2RGB)
 
 
-@app.route("/detect_persons", methods=["POST"])
+@app.route("/detect_people", methods=["POST"])
 def detect_persons_route():
     """Flask route to detect persons in an image."""
     if "image" not in request.files:
