@@ -15,8 +15,8 @@ app = Flask(__name__)
 
 # Model paths defined using environment variables for flexibility
 MODEL_PATHS = {
-    "model_n": os.getenv("MODEL_N_PATH", "dev/yolo11n.pt"),
-    "faces_model": os.getenv("FACE_MODEL_PATH", "yolov8n-face.pt"),
+    "model_n": "models/yolo11n.pt",
+    "faces_model": "models/yolov8n-face.pt",
 }
 
 
@@ -55,9 +55,9 @@ def crop_padded_box(image, box, padding, image_width, image_height):
     return cv2.cvtColor(cropped_object, cv2.COLOR_BGR2RGB)
 
 
-@app.route("/detect_persons", methods=["POST"])
-def detect_persons_route():
-    """Flask route to detect persons in an image."""
+@app.route("/detect_people", methods=["POST"])
+def detect_people_route():
+    """Flask route to detect people in an image."""
     if "image" not in request.files:
         return jsonify({"error": "No image part in the request"}), 400
 
@@ -65,7 +65,7 @@ def detect_persons_route():
     if file.filename == "":
         return jsonify({"error": "No image selected for uploading"}), 400
 
-    padding = request.form.get("padding", default=200, type=int)
+    padding = 20
     image_bytes = file.read()
 
     try:
@@ -74,22 +74,30 @@ def detect_persons_route():
         results = model_n(image, classes=0, line_width=100)
         image_height, image_width = image.shape[:2]
 
-        persons = [
-            crop_padded_box(
-                image, box.xyxy.cpu().numpy(), padding, image_width, image_height
-            )
-            for result in results
-            for box in result.boxes
-        ]
+        people = []
+        # Loop over the detections and extract the bounding boxes
+        for result in results:
+            boxes = result.boxes.xyxy.cpu().numpy()  # Get bounding box coordinates
+            for box in boxes:
+                x_min, y_min, x_max, y_max = map(int, box)
+                # Apply padding, ensuring the new coordinates are within image bounds
+                x_min_padded = max(0, x_min - padding)
+                y_min_padded = max(0, y_min - padding)
+                x_max_padded = min(image_width, x_max + padding)
+                y_max_padded = min(image_height, y_max + padding)
+                # Crop the padded object from the image
+                cropped_object = image[y_min_padded:y_max_padded, x_min_padded:x_max_padded]
+                # Convert BGR to RGB and add to persons list
+                people.append(cv2.cvtColor(cropped_object, cv2.COLOR_BGR2RGB))
 
         encoded_images = [
             base64.b64encode(
                 cv2.imencode(".jpg", cv2.cvtColor(person, cv2.COLOR_RGB2BGR))[1]
             ).decode("utf-8")
-            for person in persons
+            for person in people
         ]
 
-        return jsonify({"persons": encoded_images}), 200
+        return jsonify({"result": encoded_images}), 200
     except Exception as e:
         logger.error(f"An error occurred: {e}")
         return jsonify({"error": str(e)}), 500
@@ -106,7 +114,7 @@ def detect_faces_route():
         return jsonify({"error": "No image selected for uploading"}), 400
 
     confidence_threshold = request.form.get("confidence", default=0.75, type=float)
-    padding = request.form.get("padding", default=20, type=int)
+    padding = 20
     image_bytes = file.read()
 
     try:
@@ -136,7 +144,7 @@ def detect_faces_route():
             for face in faces
         ]
 
-        return jsonify({"faces": encoded_faces}), 200
+        return jsonify({"result": encoded_faces}), 200
     except Exception as e:
         logger.error(f"An error occurred: {e}")
         return jsonify({"error": str(e)}), 500
