@@ -5,9 +5,6 @@ import cv2
 import numpy as np
 from flask import Flask, g, jsonify, request
 from ultralytics import YOLO
-from PIL import Image
-import base64
-from io import BytesIO
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -43,6 +40,7 @@ def crop_padded_box(image, box, padding, image_width, image_height):
     cropped_object = image[y_min_padded:y_max_padded, x_min_padded:x_max_padded]
     return cv2.cvtColor(cropped_object, cv2.COLOR_BGR2RGB)
 
+
 def get_image(base64_string):
     # Decode the base64 string
     image_bytes = base64.b64decode(base64_string)
@@ -59,7 +57,7 @@ def detect_people_route():
 
     try:
         model_n = get_model("model_n")
-        image = get_image(request.json['image'])
+        image = get_image(request.json["image"])
         results = model_n(image, classes=0, line_width=100)
         image_height, image_width = image.shape[:2]
 
@@ -102,7 +100,7 @@ def detect_faces_route():
 
     try:
         face_model = get_model("faces_model")
-        image = get_image(request.json['image'])
+        image = get_image(request.json["image"])
         results = face_model(image)
         image_height, image_width = image.shape[:2]
 
