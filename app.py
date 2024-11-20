@@ -1,11 +1,13 @@
 import base64
 import logging
-import os
 
 import cv2
 import numpy as np
 from flask import Flask, g, jsonify, request
 from ultralytics import YOLO
+from PIL import Image
+import base64
+from io import BytesIO
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -31,19 +33,6 @@ def get_model(model_name):
     return getattr(g, model_name)
 
 
-def load_image(input_data):
-    """Load an image from a file path or image bytes."""
-    if isinstance(input_data, str):
-        return cv2.imread(input_data)
-    elif isinstance(input_data, bytes):
-        np_arr = np.frombuffer(input_data, np.uint8)
-        return cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-    else:
-        raise ValueError(
-            "Input should be either a file path (str) or image bytes (bytes)."
-        )
-
-
 def crop_padded_box(image, box, padding, image_width, image_height):
     """Crop a box from an image with padding, ensuring the coordinates are within bounds."""
     x_min, y_min, x_max, y_max = map(int, box)
@@ -54,23 +43,23 @@ def crop_padded_box(image, box, padding, image_width, image_height):
     cropped_object = image[y_min_padded:y_max_padded, x_min_padded:x_max_padded]
     return cv2.cvtColor(cropped_object, cv2.COLOR_BGR2RGB)
 
+def get_image(base64_string):
+    # Decode the base64 string
+    image_bytes = base64.b64decode(base64_string)
+    # Convert the bytes into a NumPy array
+    np_arr = np.frombuffer(image_bytes, np.uint8)
+    # Decode the image using OpenCV
+    return cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+
 
 @app.route("/detect_people", methods=["POST"])
 def detect_people_route():
     """Flask route to detect people in an image."""
-    if "image" not in request.files:
-        return jsonify({"error": "No image part in the request"}), 400
-
-    file = request.files["image"]
-    if file.filename == "":
-        return jsonify({"error": "No image selected for uploading"}), 400
-
     padding = 20
-    image_bytes = file.read()
 
     try:
         model_n = get_model("model_n")
-        image = load_image(image_bytes)
+        image = get_image(request.json['image'])
         results = model_n(image, classes=0, line_width=100)
         image_height, image_width = image.shape[:2]
 
@@ -86,7 +75,9 @@ def detect_people_route():
                 x_max_padded = min(image_width, x_max + padding)
                 y_max_padded = min(image_height, y_max + padding)
                 # Crop the padded object from the image
-                cropped_object = image[y_min_padded:y_max_padded, x_min_padded:x_max_padded]
+                cropped_object = image[
+                    y_min_padded:y_max_padded, x_min_padded:x_max_padded
+                ]
                 # Convert BGR to RGB and add to persons list
                 people.append(cv2.cvtColor(cropped_object, cv2.COLOR_BGR2RGB))
 
@@ -106,20 +97,12 @@ def detect_people_route():
 @app.route("/detect_faces", methods=["POST"])
 def detect_faces_route():
     """Flask route to detect faces in an image."""
-    if "image" not in request.files:
-        return jsonify({"error": "No image part in the request"}), 400
-
-    file = request.files["image"]
-    if file.filename == "":
-        return jsonify({"error": "No image selected for uploading"}), 400
-
     confidence_threshold = request.form.get("confidence", default=0.75, type=float)
     padding = 20
-    image_bytes = file.read()
 
     try:
         face_model = get_model("faces_model")
-        image = load_image(image_bytes)
+        image = get_image(request.json['image'])
         results = face_model(image)
         image_height, image_width = image.shape[:2]
 
@@ -159,4 +142,4 @@ def teardown(exception):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5678)
