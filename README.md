@@ -1,1 +1,1 @@
-# Detect People and Faces
+# Detect People, Faces, and Cars Plates
